@@ -169,4 +169,23 @@ Odoo.sh staging renews monthly. When it does:
 
 ---
 
+## 9. WEB NAVIGATION RULES (Chrome DevTools MCP)
+
+### Allowed
+- Navigate and inspect any AIT URL (*.dev.odoo.com)
+- Read DOM, console logs, network requests, page titles
+- Verify views render correctly after an odoo-update
+- Read technical field names, view IDs, model names from the UI
+
+### Prohibited
+- Interacting with any URL that does NOT contain `.dev.odoo.com` — could be production
+- Using Odoo Studio to modify fields or views from the UI
+- Clicking anything that creates, edits, or deletes records
+- All structural changes go through code in `MODULE_PREFIX_*` modules, deployed via Git
+
+### Before any navigation
+Always verify the URL contains `.dev.odoo.com`. If not — stop and alert the developer immediately.
+
+---
+
 *odoo-agent — github.com/jdvillasmil/odoo-agent*
