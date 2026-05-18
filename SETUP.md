@@ -22,7 +22,7 @@ npm install -g @anthropic-ai/claude-code
 
 Verify:
 ```bash
-claude --version
+Claude --version
 ```
 
 ---
@@ -143,6 +143,28 @@ Odoo.sh staging instances renew monthly. When yours renews:
 4. Test with `ssh $ODOO_SSH "pwd"`
 
 Only `.env` changes — `CLAUDE.md` and everything else stays the same.
+
+---
+
+## Security Best Practices
+
+### Close Chrome when not using Claude Code
+When you launch Chrome with `--remote-debugging-port=9222`, any process on your 
+machine can connect to that port and control the browser.
+
+**Rule:** Only open Chrome with the debug port when actively working with Claude Code.
+Close it when you're done.
+
+```powershell
+# Open Chrome for Claude Code session
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" `
+  --remote-debugging-port=9222 `
+  --user-data-dir="C:\Users\YOUR_USER\AppData\Local\Google\Chrome\User Data\Profile 1"
+
+# When done — close Chrome completely
+```
+
+This is a simple habit that eliminates the most immediate local security risk.
 
 ---
 
