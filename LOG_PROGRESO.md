@@ -6,7 +6,15 @@
 
 ---
 
-## 2026-05-15 — Initial setup
+## Template (copy for each session)
+
+- **Changed:** 
+- **Found:** 
+- **Pending:** 
+
+---
+
+## Initial setup
 - **Changed:** Repo created. CLAUDE.md, .env.example, .gitignore, LOG_PROGRESO.md added.
 - **Found:** Nothing yet — first session.
 - **Pending:** docs/SETUP.md, Chrome DevTools MCP integration, db_proxy.py script.
