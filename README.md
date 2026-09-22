@@ -1,6 +1,6 @@
 # 🤖 odoo-agent
 
-> AI-powered development agent for Odoo 17 — automated code auditing, module analysis, and deployment via Claude Code + SSH.
+> A personal AI development agent for Odoo 17 — automated code auditing, module analysis, and guided deployment via Claude Code + SSH.
 
 ---
 
@@ -14,14 +14,14 @@ Manual code reviews before merging to production are slow, inconsistent, and eas
 
 ## The Solution
 
-An AI agent connected directly to your development environment:
+An AI agent connected directly to a development environment:
 
 - **Reads the full repository** — models, manifests, inheritance trees, dependencies
 - **Connects to Odoo.sh via SSH** — runs updates, checks logs, inspects deployed files
-- **Audits before you merge** — finds deprecated patterns, duplicate methods, security gaps, and inheritance risks
-- **Suggests commits, never executes them** — you stay in control
+- **Audits before merge** — finds deprecated patterns, duplicate methods, security gaps, and inheritance risks
+- **Proposes commits, never executes them** — the developer stays in control
 
-One prompt. One agent. Real diagnosis in minutes.
+I built this for my own day-to-day Odoo work, and I maintain it.
 
 ---
 
@@ -29,7 +29,7 @@ One prompt. One agent. Real diagnosis in minutes.
 
 **Prompt:**
 ```
-Compare branches AIT vs main and audit every module not yet in production.
+Compare branches dev vs main and audit every module not yet in production.
 Check naming conventions, deprecated patterns, security files, inheritance risks.
 Report with status: READY / NEEDS WORK / REVIEW REQUIRED
 ```
@@ -38,15 +38,15 @@ Report with status: READY / NEEDS WORK / REVIEW REQUIRED
 
 | Module | Status | Blocking Issue |
 |--------|--------|----------------|
-| proyelec_salas | ✅ READY | None |
-| proyelec_calendar_personal | ⚠️ NEEDS WORK | Empty views (WIP) |
-| proyelec_sale_createdby | ⚠️ NEEDS WORK | Wrong author in manifest |
-| proyelec_snp_autocomplete | ⚠️ NEEDS WORK | 3 duplicate `@constrains` + 1 duplicate `@onchange` — silent dead code |
-| proyelec_so_to_po | 🔴 REVIEW REQUIRED | Double-procurement risk in `_action_confirm` + deprecated `digits=(5,2)` |
+| custom_room_booking | ✅ READY | None |
+| custom_personal_calendar | ⚠️ NEEDS WORK | Empty views (WIP) |
+| custom_sale_createdby | ⚠️ NEEDS WORK | Wrong author in manifest |
+| custom_product_autocomplete | ⚠️ NEEDS WORK | 3 duplicate `@constrains` + 1 duplicate `@onchange` — silent dead code |
+| custom_purchase_from_sale | 🔴 REVIEW REQUIRED | Flagged a possible double-procurement path in `_action_confirm` |
 
-**Bugs found that would have reached production undetected:**
-- A method defined **3 times** in the same class — Python silently uses only the last one
-- A `_action_confirm` override triggering `_action_launch_stock_rule()` twice — risking **duplicate Purchase Orders per confirmed sale line**
+**A real find, and how it played out:** the agent flagged `custom_purchase_from_sale` for a possible double-procurement bug. I traced it by hand: the flagged path was actually a false positive — a `skip_procurement` context already prevented the scenario the agent described. But the audit was right to be suspicious. Reading the method more closely turned up a real, narrower gap: no state guard against re-entrant calls to the confirm method. I verified against production data that it hasn't caused a single duplicate order in practice, and it's now a tracked, documented risk rather than an unknown one.
+
+That's the actual value of this tool: it doesn't replace judgment, it gives you something concrete to investigate. The agent's first read was wrong in its specifics and useful in its instinct.
 
 ---
 
@@ -83,16 +83,16 @@ ODOO_DB=your-database-name
 
 ```
 # Audit all modules not yet in production
-Compare branches AIT vs main and audit every module not in main yet.
+Compare branches dev vs main and audit every module not in main yet.
 Check: naming conventions, deprecated patterns, security files, inheritance risks.
 Report with status: READY / NEEDS WORK / REVIEW REQUIRED
 
 # Check a specific module
-Read proyelec_so_to_po and find any deprecated Odoo 17 patterns,
+Read custom_purchase_from_sale and find any deprecated Odoo 17 patterns,
 inheritance risks, or logic issues before merging to main.
 
 # Deploy and verify
-Update module proyelec_salas via SSH, then check logs for errors.
+Update module custom_room_booking via SSH, then check logs for errors.
 ```
 
 ---
@@ -112,35 +112,41 @@ You (requirement)
   odoo-update · logs · file inspection
 ```
 
-### Safety Rules (enforced via CLAUDE.md)
-- ✅ Only operates on development branch — never touches production
-- ✅ Only modifies your custom modules — third-party and native Odoo modules are read-only
-- ✅ Never executes `git push`, `git merge`, or any destructive command
-- ✅ Suggests commits — you always have the final call
-- ✅ SSH credentials stay in `.env` — never committed to the repository
+### Rules the agent follows (defined in `CLAUDE.md`)
+These are instructions to the model, not a hard technical sandbox — they shape its behavior, they don't enforce it at the infrastructure level.
+- Operates only on the development branch — stops and alerts if it detects `main`/`master`
+- Only writes to modules under a configured prefix — third-party and native Odoo modules are read-only
+- Never executes `git push`, `git merge`, or any destructive command
+- Proposes commit messages — the developer runs `git add`/`git commit`
+- SSH credentials stay in `.env` — never committed to the repository
+
+---
+
+## A known limitation
+
+Session memory (`LOG_PROGRESO.md`) is meant to give the agent continuity across sessions. In practice, results from an in-chat investigation don't always get persisted before the conversation is compacted, so verified findings from one session can be unavailable in the next. This is an open problem I'm actively working on — see Phase 2 below.
 
 ---
 
 ## Roadmap
 
-### ✅ Phase 1 — Foundation (Complete)
+### ✅ Phase 1 — Foundation
 - Claude Code connected to repo + Odoo.sh via SSH
 - CLAUDE.md with security rules, module hierarchy, business context
 - LOG_PROGRESO.md for session memory between runs
 - Branch audit: finds deprecated patterns, duplicate methods, inheritance risks
 
-### 🔄 Phase 2 — Database Access
+### 🔄 Phase 2 — Reliable memory + database access
+- Persist verified findings (query results, confirmed fixes) so they survive session compaction, not just a 3-line summary
 - Python proxy script on the server that accepts ORM expressions and returns JSON
 - Allows the agent to query live data without interactive shell limitations
-- Example: `env['sale.order'].search_count([('state','=','sale')])`
 
-### 📋 Phase 3 — Browser Integration
+### 📋 Phase 3 — Browser Integration (planned)
 - Connect `chrome-devtools-mcp` to a dedicated Chrome profile (dev only)
 - Agent reads browser console logs, network requests, DOM in real time
 - After `odoo-update`, agent opens the instance, verifies views render, reads JS errors
-- Closes the loop: write → deploy → verify → iterate
 
-### 🔮 Phase 4 — Multi-Agent Architecture
+### 🔮 Phase 4 — Multi-Agent Architecture (exploratory)
 ```
 Orchestrator
      ↓
@@ -170,26 +176,17 @@ odoo-agent/
 ├── .env.example        ← Configuration template
 ├── .gitignore          ← Keeps .env and sensitive data out of the repo
 ├── LOG_PROGRESO.md     ← Session memory — agent reads and updates this
-├── docs/
-│   ├── SETUP.md        ← Step-by-step connection guide for Odoo.sh
-│   ├── ARCHITECTURE.md ← Multi-agent design and vision
-│   └── ROADMAP.md      ← Phases, current status, what's next
-├── scripts/
-│   └── db_proxy.py     ← (Phase 2) ORM query proxy via SSH
-└── examples/
-    ├── audit-prompt.md ← Ready-to-use audit prompts
-    └── sample-output.md ← Real audit output example
+└── LICENSE
 ```
+
+*(`docs/`, `scripts/`, and `examples/` are planned but not built yet — see Roadmap.)*
 
 ---
 
 ## Contributing
 
-This project is in active development. If you're an Odoo developer and want to contribute or adapt it to your setup, feel free to fork it and open a PR.
-
-Feedback, issues, and ideas are welcome.
+This is a personal project in active development. If you're an Odoo developer and want to adapt it to your own setup, feel free to fork it and open a PR. Feedback, issues, and ideas are welcome.
 
 ---
 
-*Built at Proyelec International · AIT Department · 2026*  
 *By [Juan David Villasmil](https://linkedin.com/in/jvillasmil)*
